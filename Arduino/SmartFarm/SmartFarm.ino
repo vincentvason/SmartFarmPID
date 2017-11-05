@@ -8,7 +8,8 @@
 #define DHT_PORT D3
 #define SOIL_PORT A0
 
-
+int Humidnity, Tempurature, Soil, Light;
+DHT dht(DHT_PORT, DHT22);
 Adafruit_TSL2561_Unified tsl = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT, 12345);
 
 void setup() {
