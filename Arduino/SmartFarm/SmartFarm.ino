@@ -13,6 +13,11 @@
 #define DHT_PORT D3
 #define SOIL_PORT A0
 
+#define RED_LED D6
+#define GREEN_LED D7
+#define BLUE_LED D8
+#define RESET_PIN D5
+
 // Key Setup ----------------------------------------------
 #define KEY     "dKHySbTMVnV9A7g"
 #define SECRET  "1gP2zHPiZy3XwTWZv3O6OxjXD"
@@ -27,6 +32,9 @@ Adafruit_TSL2561_Unified tsl = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT, 1234
 // Client Setup --------------------------------------------
 const char* ssid = "CE-ESL";
 const char* password = "ceeslonly";
+
+// Reset Times --------------------------------------------
+int reset = 0;
 
 WiFiClient client;
 CMMC_Interval timer;
@@ -76,7 +84,38 @@ void onConnected(char *attribute, uint8_t* msg, unsigned int msglen) {
     microgear.setAlias(ALIAS);
 }
 
+// State Light ---------------------------------------------
+void LightStatus (int state){
+  if (state == 0){
+    digitalWrite(RED_LED, LOW);
+    digitalWrite(GREEN_LED, LOW);
+    digitalWrite(BLUE_LED, LOW);
+  }
+  else if(state == 1){
+    digitalWrite(RED_LED, HIGH);
+    digitalWrite(GREEN_LED, LOW);
+    digitalWrite(BLUE_LED, LOW);
+  }
+  else if(state == 2){
+    digitalWrite(RED_LED, LOW);
+    digitalWrite(GREEN_LED, HIGH);
+    digitalWrite(BLUE_LED, LOW);
+  }
+  else if(state == 3){
+    digitalWrite(RED_LED, LOW);
+    digitalWrite(GREEN_LED, LOW);
+    digitalWrite(BLUE_LED, HIGH);
+  }
+  else if(state == 4){
+    digitalWrite(RED_LED, LOW);
+    digitalWrite(GREEN_LED, HIGH);
+    digitalWrite(BLUE_LED, HIGH);
+  } 
+}
+
 void setup() {
+  digitalWrite(RESET_PIN, HIGH);
+  LightStatus(0);
   // Netpie Connected ---------------------------------------
   /* Call onMsghandler() when new message arraives */
   microgear.on(MESSAGE,onMsghandler);
@@ -87,12 +126,17 @@ void setup() {
   /* Call onConnected() when NETPIE connection is established */
   microgear.on(CONNECTED,onConnected);
   // Sensor Setup -------------------------------------------
+  pinMode(RED_LED, OUTPUT);
+  pinMode(GREEN_LED, OUTPUT);
+  pinMode(BLUE_LED, OUTPUT);
+  pinMode(RESET_PIN, OUTPUT);
   dht.begin();
   tsl.enableAutoRange(true);
   tsl.setIntegrationTime(TSL2561_INTEGRATIONTIME_13MS); //13, 101, 402
   // Starting.. ---------------------------------------------
   Serial.begin(115200);
   Serial.println("Welcome.");
+  LightStatus(1);
   // Wait for connection.. ----------------------------------
   /* Initial WIFI, this is just a basic method to configure WIFI on ESP8266.                       */
     /* You may want to use other method that is more complicated, but provide better user experience */
@@ -100,9 +144,14 @@ void setup() {
         while (WiFi.status() != WL_CONNECTED) {
             delay(500);
             Serial.print(".");
+            reset++;
+            if(reset == 10){
+              digitalWrite(RESET_PIN, LOW);
+            }
         }
     }
   // Result --------------------------------------------------
+  LightStatus(2);
   Serial.println("WiFi connected");  
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
@@ -119,9 +168,9 @@ void loop() {
   //Variable Update
   Humidnity = dht.readHumidity();
   Tempurature = dht.readTemperature();
-  Soil = (1023-(analogRead(SOIL_PORT))/10.23);
+  Soil = (1023-(analogRead(SOIL_PORT)))/10.23;
   Light = event.light; 
-
+  LightStatus(3);
   //MQTT Method
   /* Call this method regularly otherwise the connection may be lost */
   microgear.loop();
@@ -135,6 +184,7 @@ void loop() {
       microgear.chat("SFP/T", String(Tempurature));
       microgear.chat("SFP/S", String(Soil));
       microgear.chat("SFP/L", String(Light));
+      LightStatus(4);
     });
 
   }
@@ -142,6 +192,7 @@ void loop() {
     Serial.println("connection lost, reconnect...");
     microgear.connect(APPID);
     delay(2000);
+    LightStatus(1);
   }
 
   
